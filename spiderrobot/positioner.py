@@ -77,8 +77,6 @@ class Positioner:
 	def __del__(self):
 		# close connection properly when destructing the instance
 		if self.dev:
-			for ax in self.axes:
-				self.send('AXIS{}:POW OFF'.format(ax.id))
 			self.dev.close()
 	
 	def send(self, cmd):
