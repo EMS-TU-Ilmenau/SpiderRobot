@@ -18,7 +18,7 @@ setup(
 	description=('Controller for a cable suspended robot with serial interface'),
 	license='Beer license',
 	keywords='positioner spider cable robot',
-	url='https://git01.iis.fhg.de/dvt-forte/StepperRobot',
+	url='https://git01.iis.fhg.de/dvt-forte/SpiderRobot',
 	packages=find_packages(),
 	long_description=read('README.md'),
 	install_requires=['pyserial>=3.0'],
