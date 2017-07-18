@@ -15,6 +15,13 @@ def parable(steps):
 	lin = np.linspace(0.0, 1.0, steps)
 	return 1.0-((lin-0.5)/0.5)**2
 
+def round(float):
+	# returns the correct rounded value for float as int
+	if float < 0.0:
+		return int(float-0.5)
+	else:
+		return int(float+0.5)
+
 class Axis:
 	'''Abstraction of the axes of a spider positioner
 	to keep track of the axis rotation
@@ -134,9 +141,9 @@ class Positioner:
 			rotRate = np.clip(ax.len2rot(vel)*angleDelta/angleMagn, 1, 1000) # rotation speed for each motor
 			print('Axis {} rotation speed: {:.2f}'.format(ax.id, rotRate))
 			# send strings
-			self.send('AXIS{}:RATE {}'.format(ax.id, int(rotRate+0.5))) # set rates
+			self.send('AXIS{}:RATE {}'.format(ax.id, round(rotRate))) # set rates
 			time.sleep(0.01)
-			self.send('AXIS{}:POS {}'.format(ax.id, int(ax.angle+0.5))) # set position
+			self.send('AXIS{}:POS {}'.format(ax.id, round(ax.angle))) # set position
 		
 		# wait estimated time to reach position
 		duration = angleDelta/rotRate
@@ -146,7 +153,7 @@ class Positioner:
 		# make sure that the motors reached their positions
 		# alternatively, sleep for duration*1.1 instead of just duration
 		for ax in self.axes:
-			while abs(self.getPos(ax.id)-int(ax.angle+0.5)) > 1:
+			while abs(self.getPos(ax.id)-round(ax.angle)) > 1:
 				print('Motor {} still not on position'.format(ax.id))
 				time.sleep(0.01)
 		
