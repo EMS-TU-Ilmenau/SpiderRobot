@@ -153,9 +153,19 @@ class Positioner:
 		# make sure that the motors reached their positions
 		# alternatively, sleep for duration*1.1 instead of just duration
 		for ax in self.axes:
+			notThereCnt = 0
 			while abs(self.getPos(ax.id)-round(ax.angle)) > 1:
 				print('Motor {} still not on position'.format(ax.id))
-				time.sleep(0.01)
+				notThereCnt += 1
+				time.sleep(0.05)
+				# check for serious problem
+				if notThereCnt > 100:
+					print('Re-sending position')
+					# re-send strings
+					self.send('AXIS{}:RATE {}'.format(ax.id, 10))
+					time.sleep(0.05)
+					self.send('AXIS{}:POS {}'.format(ax.id, round(ax.angle)))
+					time.sleep(0.05)
 		
 		# set new position to current position
 		self.tarPos = pos
