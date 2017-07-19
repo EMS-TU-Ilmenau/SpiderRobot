@@ -190,13 +190,17 @@ class Positioner:
 		newPos = np.asarray(pos)
 		dist = magnitude(newPos-oldPos) # distance to new position
 		steps = int(dist/res)
-		# split line into segments
-		lineX = np.linspace(oldPos[0], newPos[0], steps)
-		lineY = np.linspace(oldPos[1], newPos[1], steps)
-		lineZ = np.linspace(oldPos[2], newPos[2], steps)
-		# calculate velocity
-		vel = maxVel*((1.0-acc)+acc*parable(steps))
 		
-		# move target in segments
-		for x, y, z, v in zip(lineX, lineY, lineZ, vel):
-			self.moveToPos([x, y, z], v)
+		if steps > 1:
+			# split line into segments
+			lineX = np.linspace(oldPos[0], newPos[0], steps)
+			lineY = np.linspace(oldPos[1], newPos[1], steps)
+			lineZ = np.linspace(oldPos[2], newPos[2], steps)
+			# calculate velocity
+			vel = maxVel*((1.0-acc)+acc*parable(steps))
+			
+			# move target in segments
+			for x, y, z, v in zip(lineX, lineY, lineZ, vel):
+				self.moveToPos([x, y, z], v)
+		else:
+			self.moveToPos(pos, maxVel)
