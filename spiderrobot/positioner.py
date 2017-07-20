@@ -159,13 +159,14 @@ class Positioner:
 				notThereCnt += 1
 				time.sleep(0.05)
 				# check for serious problem
-				if notThereCnt > 100:
+				if notThereCnt > 20:
 					print('Re-sending position')
 					# re-send strings
 					self.send('AXIS{}:RATE {}'.format(ax.id, 10))
 					time.sleep(0.05)
 					self.send('AXIS{}:POS {}'.format(ax.id, round(ax.angle)))
 					time.sleep(0.05)
+					notThereCnt = 0
 		
 		# set new position to current position
 		self.tarPos = pos
