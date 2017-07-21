@@ -26,22 +26,24 @@ class Axis:
 	'''Abstraction of the axes of a spider positioner
 	to keep track of the axis rotation
 	'''
-	def __init__(self, id=1, diameter=0.05, placed=[0.0,0.0,1.0], target=[0.0,0.0,0.0]):
+	def __init__(self, id, diameter, placed, target, attached=[0.0,0.0,0.0]):
 		'''
 		:param id: axis identifier number of the stepper controller
 		:param diameter: diameter in meters of the axis
 		:param placed: axis position in meters as [x,y,z] array
-		:param target: initial target position in meters as [x,y,z] array'''
+		:param target: initial target position of the platform in meters as [x,y,z] array
+		:param attached: offset from the target were the cable is attached in meters as [x,y,z] array'''
 		self.id = id
 		self.diameter = diameter
-		self.placed = placed
-		self.target = target
+		self.placed = np.array(placed)
+		self.attached = np.array(attached)
+		self.target = np.array(target)+self.attached
 		self.offsetRot = self.rot
 	
 	@property
 	def dist(self):
 		''':returns: distance in meters to the target'''
-		return magnitude(np.asarray(self.target)-np.asarray(self.placed))
+		return magnitude(self.target-self.placed)
 	
 	@property
 	def rot(self):
@@ -53,6 +55,11 @@ class Axis:
 		''':returns: relative axis angle in degree to drive the target'''
 		return self.rot-self.offsetRot
 	
+	def setTarget(self, target):
+		'''sets new platform target position
+		:param target: position in meters as [x,y,z] array'''
+		self.target = np.array(target)+self.attached
+	
 	def len2rot(self, l):
 		'''
 		:param l: length in m
@@ -60,7 +67,7 @@ class Axis:
 		return 360.0*l/(np.pi*self.diameter)
 
 class Positioner:
-	'''class to control a target position like a spider-cam
+	'''class to move a target position like a spider-cam
 	Usage:
 	1. define a coordinate system for the real application, i.e. where the target is moving
 	2. instantiate this class with the serial interface for the motor controller and the initial target position
@@ -96,11 +103,12 @@ class Positioner:
 			return ''.join([c if ord(c) > 32 else '' for c in resp]) # remove control chars
 		return None
 	
-	def addAxis(self, id, placed, diameter=0.05):
+	def addAxis(self, id, placed, diameter=0.05, attached=[0.0,0.0,0.0]):
 		'''adds an axis to the positioner system
 		:param id: axis identifier number of the stepper controller
-		:param placed: position in the defined 3D coordinate system of the real application where the axis is positioned in meters as [x,y,z] array
-		:param diameter: diameter of the axis'''
+		:param placed: position in the defined 3D coordinate system where the axis is positioned in meters as [x,y,z] array
+		:param diameter: diameter of the axis
+		:param attached: offset from the target were the cable is attached in meters as [x,y,z] array'''
 		# check real axis connection
 		self.send('AXIS{}:POW ON'.format(id))
 		resp = self.send('AXIS{}:POW?'.format(id))
@@ -108,7 +116,7 @@ class Positioner:
 			print('Axis {} is ready'.format(id))
 		
 		# setup axis abstraction for tracking desired rotation angle to move the target
-		newAx = Axis(id, diameter, placed, self.tarPos)
+		newAx = Axis(id, diameter, placed, self.tarPos, attached)
 		self.axes.append(newAx)
 	
 	def moveToPos(self, pos, vel=0.01):
@@ -127,7 +135,7 @@ class Positioner:
 		for ax in self.axes:
 			oldAngle = ax.angle # get old rotation angle
 			print('Axis {} old angle: {:.2f}'.format(ax.id, oldAngle))
-			ax.target = pos # update target position on the axis
+			ax.setTarget(pos) # update target position on the axis
 			newAngle = ax.angle # get new rotation angle
 			print('Axis {} new angle: {:.2f}'.format(ax.id, newAngle))
 			angleDiffs.append(newAngle-oldAngle)
