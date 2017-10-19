@@ -5,6 +5,9 @@ from __future__ import nested_scopes, generators, with_statement, unicode_litera
 import serial # for RS232/UART/COM port
 import numpy as np # for calculations
 import time # for sleeping
+import logging # for warnings, debugging, etc.
+
+log = logging.getLogger(__name__)
 
 def magnitude(vec):
 	# returns the lenght of the vector vec
@@ -85,8 +88,8 @@ class Positioner:
 		try:
 			self.dev = serial.Serial(interface, 9600, timeout=5)
 		except:
-			raise IOError('Cannot connect to controller interface')
-		print('Connection opened to {}'.format(self.dev.name))
+			raise IOError('Cannot connect to spider interface')
+		log.info('Connection opened to spider interface via {}'.format(self.dev.name))
 	
 	def __del__(self):
 		# close connection properly when destructing the instance
@@ -113,7 +116,9 @@ class Positioner:
 		self.send('AXIS{}:POW ON'.format(id))
 		resp = self.send('AXIS{}:POW?'.format(id))
 		if 'ON' in resp:
-			print('Axis {} is ready'.format(id))
+			log.info('Axis {} is ready'.format(id))
+		else:
+			log.error('Axis {} is not powered'.format(id))
 		
 		# setup axis abstraction for tracking desired rotation angle to move the target
 		newAx = Axis(id, diameter, placed, self.tarPos, attached)
@@ -126,28 +131,28 @@ class Positioner:
 		# check if movement is necessary
 		dist = magnitude(np.asarray(pos)-np.asarray(self.tarPos))
 		if dist < 0.001:
-			print('No movement')
+			log.debug('Already on position')
 			return
-		print('\nMoving target to {} with {} mm/s'.format(pos, vel*1000))
+		log.info('\nMoving target to {} with {} mm/s'.format(pos, vel*1000))
 		
 		# get difference between old and new angles
 		angleDiffs = []
 		for ax in self.axes:
 			oldAngle = ax.angle # get old rotation angle
-			print('Axis {} old angle: {:.2f}'.format(ax.id, oldAngle))
+			log.debug('Axis {} old angle: {:.2f}'.format(ax.id, oldAngle))
 			ax.setTarget(pos) # update target position on the axis
 			newAngle = ax.angle # get new rotation angle
-			print('Axis {} new angle: {:.2f}'.format(ax.id, newAngle))
+			log.debug('Axis {} new angle: {:.2f}'.format(ax.id, newAngle))
 			angleDiffs.append(newAngle-oldAngle)
-		print('Angle differences: {}'.format(angleDiffs))
+		log.debug('Angle differences: {}'.format(angleDiffs))
 		
 		# calculate rotation speed contributions
 		angleMagn = magnitude(angleDiffs)
-		print('Angle magnitude: {:.2f}'.format(angleMagn))
+		log.debug('Angle magnitude: {:.2f}'.format(angleMagn))
 		for ax, angleDiff in zip(self.axes, angleDiffs):
 			angleDelta = abs(angleDiff)
 			rotRate = np.clip(ax.len2rot(vel)*angleDelta/angleMagn, 1, 1000) # rotation speed for each motor
-			print('Axis {} rotation speed: {:.2f}'.format(ax.id, rotRate))
+			log.debug('Axis {} rotation speed: {:.2f}'.format(ax.id, rotRate))
 			# send strings
 			self.send('AXIS{}:RATE {}'.format(ax.id, round(rotRate))) # set rates
 			time.sleep(0.01)
@@ -155,7 +160,7 @@ class Positioner:
 		
 		# wait estimated time to reach position
 		duration = angleDelta/rotRate
-		print('Waiting {:.2f} s for motors to reach position...'.format(duration))
+		log.debug('Waiting {:.2f} s for motors to reach position...'.format(duration))
 		time.sleep(duration)
 		
 		# make sure that the motors reached their positions
@@ -163,18 +168,22 @@ class Positioner:
 		for ax in self.axes:
 			notThereCnt = 0
 			while abs(self.getPos(ax.id)-round(ax.angle)) > 1:
-				print('Motor {} still not on position'.format(ax.id))
+				log.debug('Motor {} still not on position'.format(ax.id))
 				notThereCnt += 1
 				time.sleep(0.05)
 				# check for serious problem
-				if notThereCnt > 20:
-					print('Re-sending position')
+				if notThereCnt == 20:
+					log.warning('Re-sending position')
 					# re-send strings
 					self.send('AXIS{}:RATE {}'.format(ax.id, 10))
 					time.sleep(0.05)
 					self.send('AXIS{}:POS {}'.format(ax.id, round(ax.angle)))
 					time.sleep(0.05)
 					notThereCnt = 0
+				# something is not right
+				if notThereCnt > 1000:
+					log.error('Position cannot not be reached on motor {}'.format(ax.id))
+					break
 		
 		# set new position to current position
 		self.tarPos = pos
