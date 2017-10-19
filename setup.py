@@ -21,7 +21,7 @@ setup(
 	url='https://git01.iis.fhg.de/dvt-forte/SpiderRobot',
 	packages=find_packages(),
 	long_description=read('README.md'),
-	install_requires=['pyserial>=3.0'],
+	install_requires=['pyserial>=3.0', 'numpy'],
 	classifiers=[
 		'Development Status :: 1 - Alpha',
 		'Topic :: Utilities',
