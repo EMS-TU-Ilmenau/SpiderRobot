@@ -88,8 +88,8 @@ class Positioner:
 		try:
 			self.dev = serial.Serial(interface, 9600, timeout=5)
 		except:
-			raise IOError('Cannot connect to spider interface')
-		log.info('Connection opened to spider interface via {}'.format(self.dev.name))
+			raise IOError('Cannot connect to spider port {}'.format(interface))
+		log.info('Connection opened to spider port {}'.format(self.dev.name))
 	
 	def __del__(self):
 		# close connection properly when destructing the instance
