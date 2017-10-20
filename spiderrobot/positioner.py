@@ -181,7 +181,7 @@ class Positioner:
 					time.sleep(0.05)
 					notThereCnt = 0
 				# something is not right
-				if notThereCnt > 1000:
+				if notThereCnt > 200:
 					log.error('Position cannot not be reached on motor {}'.format(ax.id))
 					break
 		
