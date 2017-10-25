@@ -133,7 +133,7 @@ class Positioner:
 		if dist < 0.001:
 			log.debug('Already on position')
 			return
-		log.info('\nMoving target to {} with {} mm/s'.format(pos, vel*1000))
+		log.info('Moving target to {} with {} mm/s'.format(pos, vel*1000))
 		
 		# get difference between old and new angles
 		angleDiffs = []
