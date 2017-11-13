@@ -133,7 +133,8 @@ class Positioner:
 		if dist < 0.001:
 			log.debug('Already on position')
 			return
-		log.info('Moving target to {} with {} mm/s'.format(pos, vel*1000))
+		log.info('Moving target to x={:.3f}m, y={:.3f}m, z={:.3f}m with {} mm/s'.format(
+			pos[0], pos[1], pos[2], vel*1000))
 		
 		# get difference between old and new angles
 		angleDiffs = []
@@ -181,7 +182,7 @@ class Positioner:
 					time.sleep(0.05)
 					notThereCnt = 0
 				# something is not right
-				if notThereCnt > 200:
+				if notThereCnt > 100:
 					log.error('Position cannot not be reached on motor {}'.format(ax.id))
 					break
 		
@@ -195,10 +196,8 @@ class Positioner:
 			resp = self.send('AXIS{}:POS?'.format(id))
 		return int(resp)
 	
-	def moveOnLine(self, pos, maxVel=0.1, acc=0.9, res=0.01):
-		'''moves the target along a line with acceleration
-		
-		note: DOES NOT WORK SO WELL. NOT RECOMMENTED TO USE
+	def moveOnLine(self, pos, maxVel=0.1, acc=0., res=0.1):
+		'''moves the target along a line
 		
 		:param pos: target position in meters as [x,y,z] array
 		:param maxVel: maximum speed in m/s to move to the position
