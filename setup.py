@@ -12,7 +12,7 @@ def read(fname):
 
 setup(
 	name='spiderrobot',
-	version='0.0.1',
+	version='0.0.2',
 	author='Niklas Beuster',
 	author_email='niklas.beuster@tu-ilmenau.de',
 	description=('Controller for a cable suspended robot with serial interface'),
