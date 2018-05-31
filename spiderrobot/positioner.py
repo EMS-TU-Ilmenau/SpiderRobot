@@ -100,10 +100,10 @@ class Positioner:
 		'''sends a command via the interface to the motor controller(s)
 		:param cmd: command (without line endings) to send
 		:returns: when the command was a query, the response is returned'''
-		self.dev.write(bytes(cmd+'\n'))
+		self.dev.write(bytes(cmd+'\n', 'ascii'))
 		if '?' in cmd:
 			resp = self.dev.readline()
-			return ''.join([c if ord(c) > 32 else '' for c in resp]) # remove control chars
+			return str(bytes(filter(lambda c: c > 32, resp)), 'ascii') # remove control chars
 		return None
 	
 	def addAxis(self, id, placed, diameter=0.05, attached=[0.0,0.0,0.0]):
