@@ -18,13 +18,6 @@ def parable(steps):
 	lin = np.linspace(0.0, 1.0, steps)
 	return 1.0-((lin-0.5)/0.5)**2
 
-def round(float):
-	# returns the correct rounded value for float as int
-	if float < 0.0:
-		return int(float-0.5)
-	else:
-		return int(float+0.5)
-
 class Axis:
 	'''Abstraction of the axes of a spider positioner
 	to keep track of the axis rotation
