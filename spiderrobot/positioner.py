@@ -86,6 +86,10 @@ class Positioner:
 	
 	def __del__(self):
 		# close connection properly when destructing the instance
+		self.disconnect()
+	
+	def disconnect(self):
+		'''Disconnect from serial port'''
 		if self.dev:
 			self.dev.close()
 	
