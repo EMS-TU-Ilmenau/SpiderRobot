@@ -1,6 +1,4 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 from __future__ import nested_scopes, generators, with_statement, unicode_literals, absolute_import, division, print_function # for compatibility
 import serial # for RS232/UART/COM port
 import numpy as np # for calculations
@@ -8,6 +6,10 @@ import time # for sleeping
 import logging # for warnings, debugging, etc.
 
 log = logging.getLogger(__name__)
+
+def axStr(id):
+	# returns the complete axis name (prefix + id)
+	return 'AX{}'.format(id)
 
 def magnitude(vec):
 	# returns the lenght of the vector vec
@@ -110,8 +112,8 @@ class Positioner:
 		:param diameter: diameter of the axis
 		:param attached: offset from the target were the cable is attached in meters as [x,y,z] array'''
 		# check real axis connection
-		self.send('AXIS{}:POW ON'.format(id))
-		resp = self.send('AXIS{}:POW?'.format(id))
+		self.send('{}:POW ON'.format(axStr(id)))
+		resp = self.send('{}:POW?'.format(axStr(id)))
 		if 'ON' in resp:
 			log.info('Axis {} is ready'.format(id))
 		else:
@@ -152,9 +154,9 @@ class Positioner:
 			rotRate = np.clip(ax.len2rot(vel)*angleDelta/angleMagn, 1, 1000) # rotation speed for each motor
 			log.debug('Axis {} rotation speed: {:.2f}'.format(ax.id, rotRate))
 			# send strings
-			self.send('AXIS{}:RATE {}'.format(ax.id, round(rotRate))) # set rates
+			self.send('{}:RATE {}'.format(axStr(ax.id), round(rotRate))) # set rates
 			time.sleep(0.01)
-			self.send('AXIS{}:POS {}'.format(ax.id, round(ax.angle))) # set position
+			self.send('{}:POS {}'.format(axStr(ax.id), round(ax.angle))) # set position
 		
 		# wait estimated time to reach position
 		duration = angleDelta/rotRate
@@ -173,9 +175,9 @@ class Positioner:
 				if notThereCnt == 20:
 					log.warning('Re-sending position')
 					# re-send strings
-					self.send('AXIS{}:RATE {}'.format(ax.id, 10))
+					self.send('{}:RATE {}'.format(axStr(ax.id), 10))
 					time.sleep(0.05)
-					self.send('AXIS{}:POS {}'.format(ax.id, round(ax.angle)))
+					self.send('{}:POS {}'.format(axStr(ax.id), round(ax.angle)))
 					time.sleep(0.05)
 					notThereCnt = 0
 				# something is not right
@@ -190,7 +192,7 @@ class Positioner:
 		''':returns: motor axis angle in degree'''
 		resp = None
 		while not resp:
-			resp = self.send('AXIS{}:POS?'.format(id))
+			resp = self.send('{}:POS?'.format(axStr(id)))
 		return int(resp)
 	
 	def moveOnLine(self, pos, maxVel=0.1, acc=0., res=0.1):
