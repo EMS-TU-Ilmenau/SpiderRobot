@@ -7,30 +7,28 @@ import logging # for warnings, debugging, etc.
 
 log = logging.getLogger(__name__)
 
+
 def axStr(id):
 	# returns the complete axis name (prefix + id)
 	return 'AX{}'.format(id)
+
 
 def magnitude(vec):
 	# returns the lenght of the vector vec
 	return np.sqrt(sum(np.asarray(vec)**2))
 
-def parable(steps):
-	# returns a vector with parabolic values between 0 and 1
-	lin = np.linspace(0.0, 1.0, steps)
-	return 1.0-((lin-0.5)/0.5)**2
 
 class Axis:
 	'''Abstraction of the axes of a spider positioner
 	to keep track of the axis rotation
 	'''
-	def __init__(self, id, diameter, placed, target, attached=[0.0,0.0,0.0]):
+	def __init__(self, id, diameter, placed, target, attached=[0., 0., 0.]):
 		'''
 		:param id: axis identifier number of the stepper controller
 		:param diameter: diameter in meters of the axis
-		:param placed: axis position in meters as [x,y,z] array
-		:param target: initial target position of the platform in meters as [x,y,z] array
-		:param attached: offset from the target were the cable is attached in meters as [x,y,z] array'''
+		:param placed: axis position in meters as [x, y, z] array
+		:param target: initial target position of the platform in meters as [x, y, z] array
+		:param attached: offset from the target were the cable is attached in meters as [x, y, z] array'''
 		self.id = id
 		self.diameter = diameter
 		self.placed = np.array(placed)
@@ -55,7 +53,7 @@ class Axis:
 	
 	def setTarget(self, target):
 		'''sets new platform target position
-		:param target: position in meters as [x,y,z] array'''
+		:param target: position in meters as [x, y, z] array'''
 		self.target = np.array(target)+self.attached
 	
 	def len2rot(self, l):
@@ -63,6 +61,7 @@ class Axis:
 		:param l: length in m
 		:returns: rotation angle in degree'''
 		return 360.0*l/(np.pi*self.diameter)
+
 
 class Positioner:
 	'''class to move a target position like a spider-cam
@@ -72,10 +71,10 @@ class Positioner:
 	3. add actuator abstractions using the objects "addAxis" method with the motor id, position of the axis and the axle diameter
 	4. move the target using the "moveToPos" method
 	'''
-	def __init__(self, interface='COM10', tarStartPos=[0.0,0.0,0.0]):
+	def __init__(self, interface='COM10', tarStartPos=[0., 0., 0.]):
 		'''
 		:param interface: serial interface to communicate with the motor controllers
-		:param tarStartPos: target start position in meters as [x,y,z] array'''
+		:param tarStartPos: target start position in meters as [x, y, z] array'''
 		self.tarPos = tarStartPos
 		self.axes = [] # to store the axis objects
 		self.dev = None
@@ -105,12 +104,12 @@ class Positioner:
 			return str(bytes(filter(lambda c: c > 32, resp)), 'ascii') # remove control chars
 		return None
 	
-	def addAxis(self, id, placed, diameter=0.05, attached=[0.0,0.0,0.0]):
+	def addAxis(self, id, placed, diameter=0.05, attached=[0., 0., 0.]):
 		'''adds an axis to the positioner system
 		:param id: axis identifier number of the stepper controller
-		:param placed: position in the defined 3D coordinate system where the axis is positioned in meters as [x,y,z] array
+		:param placed: position in the defined 3D coordinate system where the axis is positioned in meters as [x, y, z] array
 		:param diameter: diameter of the axis
-		:param attached: offset from the target were the cable is attached in meters as [x,y,z] array'''
+		:param attached: offset from the target were the cable is attached in meters as [x, y, z] array'''
 		# check real axis connection
 		self.send('{}:POW ON'.format(axStr(id)))
 		resp = self.send('{}:POW?'.format(axStr(id)))
@@ -123,10 +122,11 @@ class Positioner:
 		newAx = Axis(id, diameter, placed, self.tarPos, attached)
 		self.axes.append(newAx)
 	
-	def moveToPos(self, pos, vel=0.01):
+	def moveToPos(self, pos, vel=0.05, blocking=True):
 		'''moves the target to a new position
-		:param pos: new target position in meters as [x,y,z] array
-		:param vel: speed in m/s to move to the position'''
+		:param pos: new target position in meters as [x, y, z] array
+		:param vel: speed in m/s to move to the position
+		:param blocking: blocks until motors reached their positions'''
 		# check if movement is necessary
 		dist = magnitude(np.asarray(pos)-np.asarray(self.tarPos))
 		if dist < 0.001:
@@ -160,6 +160,9 @@ class Positioner:
 		
 		# wait estimated time to reach position
 		duration = angleDelta/rotRate
+		if not blocking:
+			return duration
+		
 		log.debug('Waiting {:.2f} s for motors to reach position...'.format(duration))
 		time.sleep(duration)
 		
@@ -187,6 +190,7 @@ class Positioner:
 		
 		# set new position to current position
 		self.tarPos = pos
+		return 0.
 	
 	def getPos(self, id):
 		''':returns: motor axis angle in degree'''
@@ -195,12 +199,11 @@ class Positioner:
 			resp = self.send('{}:POS?'.format(axStr(id)))
 		return int(resp)
 	
-	def moveOnLine(self, pos, maxVel=0.1, acc=0., res=0.1):
+	def moveOnLine(self, pos, vel=0.05, res=0.1):
 		'''moves the target along a line
 		
-		:param pos: target position in meters as [x,y,z] array
-		:param maxVel: maximum speed in m/s to move to the position
-		:param acc: acceleration factor (0...1). 0 is constant speed
+		:param pos: target position in meters as [x, y, z] array
+		:param vel: speed in m/s to move to the position
 		:param res: resolution of the line splitting in m'''
 		oldPos = np.asarray(self.tarPos)
 		newPos = np.asarray(pos)
@@ -212,11 +215,11 @@ class Positioner:
 			lineX = np.linspace(oldPos[0], newPos[0], steps)
 			lineY = np.linspace(oldPos[1], newPos[1], steps)
 			lineZ = np.linspace(oldPos[2], newPos[2], steps)
-			# calculate velocity
-			vel = maxVel*((1.0-acc)+acc*parable(steps))
 			
 			# move target in segments
-			for x, y, z, v in zip(lineX, lineY, lineZ, vel):
-				self.moveToPos([x, y, z], v)
+			for x, y, z in zip(lineX, lineY, lineZ):
+				block = True if x == lineX[-1] else False
+				dur = self.moveToPos([x, y, z], vel, blocking=block)
+				time.sleep(0.95*dur)
 		else:
-			self.moveToPos(pos, maxVel)
+			self.moveToPos(pos, vel)
