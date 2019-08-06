@@ -6,9 +6,9 @@ Controller for a spider-cam-like positioner (cable suspended robot).
 Niklas Beuster -- niklas.beuster@tu-ilmenau.de
 
 ## Description
-This project provides a system to build the presentation of a cable suspended robot with arbitrary cables.
+This project provides a system to control a cable suspended robot with arbitrary number of cables.
 It cares about the calculation of the cable lengths and rotation speeds for each winch when moving the platform to a new target position.
-The motors need a serial interface to send them rotation rate and rotation position at minimum.
+The motors are interfaced by a serial connection.
 
 <img src="Showcase.png" alt="Spider robot example" width=400px/>
 
@@ -26,19 +26,19 @@ Now, you can import **spiderrobot** from anywhere on that computer in python.
 
 **Note:**
 
-The system is only valid constrained on a point, but not between two points!
-When the next target position is very far away from the last position, use "moveOnLine([x, y, z], velocity, 0.0, resolution)" instead of "moveToPos".
-The robot will then split the line into intermediate points between the last and target position.
-A resolution of 0.1 m is often good enough.
+The system is only constrained on a point, but not while moving between two points!
+When the next target position is far away from the last position, use `moveOnLine` instead of `moveToPos`. 
+The robot will then split the line into intermediate points between the last and target position in sections of 0.1 m by default. 
+
+Otherwise, the cables are likely to derail.
 
 #### Example
 
 ```python
 from spiderrobot import Positioner
-import sys
 
-# parse start position
-pos = [float(a) for a in sys.argv[1].split(',')] if len(sys.argv) > 0 else [0.0, 0.0, 0.05]
+# start position
+pos = [0., 0., 0.13]
 
 # initialize positioner with initial target position
 p = Positioner('/dev/tty.usbserial-A50285BI', pos)
@@ -52,7 +52,6 @@ p.addAxis(2, [-nomX, nomY, nomZ])
 p.addAxis(3, [-nomX, -nomY, nomZ])
 p.addAxis(4, [nomX, -nomY, nomZ])
 
-# move a simple pattern: up, then down
-p.moveToPos([0.0, 0.0, 0.5], 0.05)
-p.moveToPos([0.0, 0.0, 0.05], 0.1)
+# move platform to 1.24 m up with 0.05 m/s
+p.moveToPos([0., 0., 1.24], 0.05)
 ```
