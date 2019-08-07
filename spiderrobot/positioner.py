@@ -131,7 +131,7 @@ class Positioner:
 		dist = magnitude(np.asarray(pos)-np.asarray(self.tarPos))
 		if dist < 0.001:
 			log.debug('Already on position')
-			return
+			return 0.
 		log.info('Moving target to x={:.3f}m, y={:.3f}m, z={:.3f}m with {} mm/s'.format(
 			pos[0], pos[1], pos[2], vel*1000))
 		
