@@ -35,6 +35,7 @@ class Axis:
 		self.attached = np.array(attached)
 		self.target = np.array(target)+self.attached
 		self.offsetRot = self.rot
+		self.rate = 0.
 	
 	@property
 	def dist(self):
@@ -44,7 +45,7 @@ class Axis:
 	@property
 	def rot(self):
 		''':returns: absolute axis rotation in degree to keep distance to target'''
-		return self.len2rot(self.dist)
+		return self.lenToRot(self.dist)
 	
 	@property
 	def angle(self):
@@ -56,11 +57,17 @@ class Axis:
 		:param target: position in meters as [x, y, z] array'''
 		self.target = np.array(target)+self.attached
 	
-	def len2rot(self, l):
+	def lenToRot(self, l):
 		'''
 		:param l: length in m
 		:returns: rotation angle in degree'''
-		return 360.0*l/(np.pi*self.diameter)
+		return 360.*l/(np.pi*self.diameter)
+	
+	def rotToLen(self, r):
+		'''
+		:param r: rotation angle in degree
+		:returns: length in m'''
+		return np.pi*self.diameter*r/360.
 
 
 class Positioner:
@@ -122,16 +129,15 @@ class Positioner:
 		newAx = Axis(id, diameter, placed, self.tarPos, attached)
 		self.axes.append(newAx)
 	
-	def moveToPos(self, pos, vel=0.05, blocking=True):
+	def moveToPos(self, pos, vel=0.05, error=0.001):
 		'''moves the target to a new position
 		:param pos: new target position in meters as [x, y, z] array
 		:param vel: speed in m/s to move to the position
-		:param blocking: blocks until motors reached their positions'''
+		:param error: blocks until distance to target'''
 		# check if movement is necessary
 		dist = magnitude(np.asarray(pos)-np.asarray(self.tarPos))
-		if dist < 0.001:
+		if dist <= error:
 			log.debug('Already on position')
-			return 0.
 		log.info('Moving target to x={:.3f}m, y={:.3f}m, z={:.3f}m with {} mm/s'.format(
 			pos[0], pos[1], pos[2], vel*1000))
 		
@@ -151,46 +157,42 @@ class Positioner:
 		log.debug('Angle magnitude: {:.2f}'.format(angleMagn))
 		for ax, angleDiff in zip(self.axes, angleDiffs):
 			angleDelta = abs(angleDiff)
-			rotRate = np.clip(ax.len2rot(vel)*angleDelta/angleMagn, 1, 1000) # rotation speed for each motor
+			rotRate = np.clip(ax.lenToRot(vel)*angleDelta/angleMagn, 1, 1000) # rotation speed for each motor
 			log.debug('Axis {} rotation speed: {:.2f}'.format(ax.id, rotRate))
-			# send strings
-			self.send('{}:RATE {}'.format(axStr(ax.id), round(rotRate))) # set rates
-			time.sleep(0.01)
-			self.send('{}:POS {}'.format(axStr(ax.id), round(ax.angle))) # set position
+			ax.rate = rotRate
 		
-		# wait estimated time to reach position
+		# estimated time to reach position
 		duration = angleDelta/rotRate
-		if not blocking:
-			return duration
+		log.debug('Around {:.2f} s to reach position...'.format(duration))
 		
-		log.debug('Waiting {:.2f} s for motors to reach position...'.format(duration))
-		time.sleep(duration)
-		
-		# make sure that the motors reached their positions
-		# alternatively, sleep for duration*1.1 instead of just duration
-		for ax in self.axes:
-			notThereCnt = 0
-			while abs(self.getPos(ax.id)-round(ax.angle)) > 1:
-				log.debug('Motor {} still not on position'.format(ax.id))
-				notThereCnt += 1
+		while True:
+			angDiffs = []
+			lenDiffs = []
+			for ax in self.axes:
+				# send strings
+				self.send('{}:RATE {}'.format(axStr(ax.id), round(ax.rate))) # set rates
+				time.sleep(0.01)
+				self.send('{}:POS {}'.format(axStr(ax.id), round(ax.angle))) # set position
 				time.sleep(0.05)
-				# check for serious problem
-				if notThereCnt == 20:
-					log.warning('Re-sending position')
-					# re-send strings
-					self.send('{}:RATE {}'.format(axStr(ax.id), 10))
-					time.sleep(0.05)
-					self.send('{}:POS {}'.format(axStr(ax.id), round(ax.angle)))
-					time.sleep(0.05)
-					notThereCnt = 0
-				# something is not right
-				if notThereCnt > 100:
-					log.error('Position cannot not be reached on motor {}'.format(ax.id))
-					break
+				# check distance to current angle
+				angDelta = abs(round(ax.angle)-self.getPos(ax.id))
+				angDiffs.append(angDelta)
+				lenDelta = ax.rotToLen(angDelta)
+				lenDiffs.append(lenDelta)
+			
+			# distance to target position
+			dist = magnitude(lenDiffs)
+			if dist <= error:
+				log.debug('Error distance reached')
+				break
+			
+			# ultimately stop when motor resolution reached
+			if all(aD <= 1 for aD in angDiffs):
+				log.debug('Motor angle resolution reached')
+				break
 		
 		# set new position to current position
 		self.tarPos = pos
-		return 0.
 	
 	def getPos(self, id):
 		''':returns: motor axis angle in degree'''
@@ -218,8 +220,6 @@ class Positioner:
 			
 			# move target in segments
 			for x, y, z in zip(lineX, lineY, lineZ):
-				block = True if x == lineX[-1] else False
-				dur = self.moveToPos([x, y, z], vel, blocking=block)
-				time.sleep(0.95*dur)
+				self.moveToPos([x, y, z], vel, error=res*0.9)
 		else:
 			self.moveToPos(pos, vel)
