@@ -2,13 +2,10 @@
 
 Controller for a spider-cam-like positioner (cable suspended robot).
 
-### Author
-Niklas Beuster -- niklas.beuster@tu-ilmenau.de
-
 ## Description
 This project provides a system to control a cable suspended robot with arbitrary number of cables.
 It cares about the calculation of the cable lengths and rotation speeds for each winch when moving the platform to a new target position.
-The motors are interfaced by a serial connection.
+It is assumed that the axes are interfaced using the [StepperDrive](https://github.com/EMS-TU-Ilmenau/StepperDrive) motor controller boards.
 
 <img src="Showcase.png" alt="Spider robot example" width=400px/>
 
