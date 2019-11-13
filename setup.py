@@ -12,13 +12,13 @@ def read(fname):
 
 setup(
 	name='spiderrobot',
-	version='0.0.4',
+	version='0.0.5',
 	author='Niklas Beuster',
 	author_email='niklas.beuster@tu-ilmenau.de',
 	description=('Controller for a cable suspended robot with serial interface'),
 	license='Beer license',
 	keywords='positioner spider cable robot',
-	url='https://csgitlab.tu-ilmenau.de/nibe8075/SpiderRobot',
+	url='https://github.com/EMS-TU-Ilmenau/SpiderRobot',
 	packages=find_packages(),
 	long_description=read('README.md'),
 	install_requires=['pyserial>=3.0', 'numpy'],

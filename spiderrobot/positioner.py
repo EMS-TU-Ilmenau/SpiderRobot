@@ -199,7 +199,7 @@ class Positioner:
 		resp = None
 		while not resp:
 			resp = self.send('{}:POS?'.format(axStr(id)))
-		return int(resp)
+		return round(float(resp))
 	
 	def moveOnLine(self, pos, vel=0.05, res=0.1):
 		'''moves the target along a line
