@@ -150,7 +150,7 @@ class Positioner:
 					log.error(f'No response from command: {cmd}')
 					nFail += 1
 					if nFail == 3:
-						raise RuntimeError(f'Cannot request axis {id}')
+						raise RuntimeError(f'Cannot request: {cmd}')
 			else:
 				return None
 	
