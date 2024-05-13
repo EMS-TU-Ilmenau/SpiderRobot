@@ -133,26 +133,27 @@ class Positioner:
 		if not cmd.endswith('\n'):
 			cmd += '\n'
 		
-		# send command
 		cmdBytes = cmd.encode('ascii')
-		log.debug(f'Sending:   {cmdBytes}')
-		self.dev.write(cmdBytes)
+		nFail = 0
+		while True:
+			# send command
+			log.debug(f'Sending:   {cmdBytes}')
+			self.dev.write(cmdBytes)
 
-		# await response when command was a request
-		if '?' in cmd:
-			resp = bytes()
-			while True:
-				# collect bytes
-				resp += self.dev.read(self.dev.in_waiting or 1)
+			# await response when command was a request
+			if '?' in cmd:
+				resp = self.dev.readline()
 				log.debug(f'Receiving: {resp}')
-				if resp.endswith(b'\n'):
+				if resp:
 					return resp[:-1].decode('ascii')
-
-				if not resp:
+				else:
 					log.error(f'No response from command: {cmd}')
-					return None
-		
-		return None
+					nFail += 1
+					if nFail == 3:
+						raise RuntimeError(f'Cannot request axis {id}')
+					time.sleep(0.1)
+			else:
+				return None
 	
 
 	def addAxis(self, id, placed, diameter=0.05, attached=[0., 0., 0.]):
@@ -225,15 +226,14 @@ class Positioner:
 			# configure motor axis
 			nFailed = 0
 			while True:
-				setRate = round(ax.rate)
-				self.send(f'AX{ax.id}:RATE {setRate}') # set rates
+				self.send(f'AX{ax.id}:RATE {ax.rate:.2f}') # set rates
 				time.sleep(0.01)
 				resp = self.send(f'AX{ax.id}:RATE?') # check if really set
-				getRate = round(float(resp))
-				if getRate == setRate:
+				getRate = float(resp)
+				if abs(getRate-ax.rate) <= 1:
 					break
 				else:
-					log.error(f'Axis {ax.id} actual rate {getRate} != {setRate} configured')
+					log.error(f'Axis {ax.id} actual rate {getRate:.2f} != {ax.rate:.2f} configured')
 					nFailed += 1
 					if nFailed == 3:
 						raise RuntimeError(f'Cannot set rate for axis {id}')
