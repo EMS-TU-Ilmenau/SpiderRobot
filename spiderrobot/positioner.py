@@ -151,7 +151,6 @@ class Positioner:
 					nFail += 1
 					if nFail == 3:
 						raise RuntimeError(f'Cannot request axis {id}')
-					time.sleep(0.1)
 			else:
 				return None
 	
