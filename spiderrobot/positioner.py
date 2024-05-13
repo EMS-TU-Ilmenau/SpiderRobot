@@ -102,7 +102,7 @@ class Positioner:
 		self.dev = None
 		# open serial port
 		try:
-			self.dev = serial.Serial(interface, 9600, timeout=5)
+			self.dev = serial.Serial(interface, 9600, timeout=2)
 		except:
 			raise IOError('Cannot connect to spider port {}'.format(interface))
 		
@@ -131,7 +131,12 @@ class Positioner:
 		'''
 		self.dev.write(bytes(cmd+'\n', 'ascii'))
 		if '?' in cmd:
-			resp = self.dev.readline()
+			resp = bytes()
+			while True:
+				resp += self.dev.read(self.dev.in_waiting or 1)
+				if resp.endswith(b'\n'):
+					break
+			
 			return str(bytes(filter(lambda c: c > 32, resp)), 'ascii') # remove control chars
 		
 		return None
@@ -243,11 +248,7 @@ class Positioner:
 		'''
 		:returns: motor axis angle in degree
 		'''
-		resp = None
-		while not resp:
-			resp = self.send(f'AX{id}:POS?')
-		
-		return float(resp)
+		return float(self.send(f'AX{id}:POS?'))
 	
 
 	def moveOnLine(self, pos, vel=0.05, res=0.1):
