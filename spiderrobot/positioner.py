@@ -129,15 +129,28 @@ class Positioner:
 		:param cmd: command (without line endings) to send
 		:returns: when the command was a query, the response is returned
 		'''
-		self.dev.write(bytes(cmd+'\n', 'ascii'))
+		# ensure line ending
+		if not cmd.endswith('\n'):
+			cmd += '\n'
+		
+		# send command
+		cmdBytes = cmd.encode('ascii')
+		log.debug(f'Sending:   {cmdBytes}')
+		self.dev.write(cmdBytes)
+
+		# await response when command was a request
 		if '?' in cmd:
 			resp = bytes()
 			while True:
+				# collect bytes
 				resp += self.dev.read(self.dev.in_waiting or 1)
+				log.debug(f'Receiving: {resp}')
 				if resp.endswith(b'\n'):
-					break
-			
-			return str(bytes(filter(lambda c: c > 32, resp)), 'ascii') # remove control chars
+					return resp[:-1].decode('ascii')
+
+				if not resp:
+					log.error(f'No response from command: {cmd}')
+					return None
 		
 		return None
 	
@@ -208,7 +221,24 @@ class Positioner:
 			rotRate = np.clip(ax.lenToRot(vel)*angleDelta/angleMagn, 1, 1000) # rotation speed for each motor
 			log.debug(f'Axis {ax.id} rotation speed: {rotRate:.2f}')
 			ax.rate = rotRate
-		
+
+			# configure motor axis
+			nFailed = 0
+			while True:
+				setRate = round(ax.rate)
+				self.send(f'AX{ax.id}:RATE {setRate}') # set rates
+				time.sleep(0.01)
+				resp = self.send(f'AX{ax.id}:RATE?') # check if really set
+				getRate = round(float(resp))
+				if getRate == setRate:
+					break
+				else:
+					log.error(f'Axis {ax.id} actual rate {getRate} != {setRate} configured')
+					nFailed += 1
+					if nFailed == 3:
+						raise RuntimeError(f'Cannot set rate for axis {id}')
+					time.sleep(0.1)
+
 		# estimated time to reach position
 		duration = angleDelta/rotRate
 		log.debug(f'Around {duration:.2f} s to reach position...')
@@ -217,10 +247,8 @@ class Positioner:
 			angDiffs = []
 			lenDiffs = []
 			for ax in self.axes:
-				# send strings
-				self.send(f'AX{ax.id}:RATE {round(ax.rate)}') # set rates
-				time.sleep(0.01)
-				self.send(f'AX{ax.id}:POS {ax.angle:.2f}') # set position
+				# configure motor axis
+				self.send(f'AX{ax.id}:POS {ax.angle:.2f}')
 				time.sleep(0.05)
 				
 				# check distance to current angle
