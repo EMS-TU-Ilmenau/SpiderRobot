@@ -145,12 +145,15 @@ class Positioner:
 				resp = self.dev.readline()
 				log.debug(f'Receiving: {resp}')
 				if resp:
-					return resp[:-1].decode('ascii')
+					respStr = str(bytes(filter(lambda c: 127 >= c >= 32, resp)), 'ascii')
+					if not 'No valid' in respStr:
+						return respStr
 				else:
 					log.error(f'No response from command: {cmd}')
-					nFail += 1
-					if nFail == 3:
-						raise RuntimeError(f'Cannot request: {cmd}')
+				
+				nFail += 1
+				if nFail == 3:
+					raise RuntimeError(f'Cannot request: {cmd}')
 			else:
 				return None
 	
@@ -164,21 +167,8 @@ class Positioner:
 		:param diameter: diameter of the axis
 		:param attached: offset from the target were the cable is attached in meters as [x, y, z] array
 		'''
-		# check real axis connection
-		nFailed = 0
-		while True:
-			self.send(f'AX{id}:POW ON')
-			time.sleep(0.01)
-			resp = self.send(f'AX{id}:POW?')
-			if 'ON' in resp:
-				log.info(f'Axis {id} is ready')
-				break
-			else:
-				log.error(f'Axis {id} is not powered')
-				nFailed += 1
-				if nFailed == 3:
-					raise RuntimeError(f'Cannot power axis {id}')
-				time.sleep(0.1)
+		# turn axis motor on
+		self.send(f'AX{id}:POW ON;*OPC?')
 		
 		# setup axis abstraction for tracking desired rotation angle to move the target
 		newAx = Axis(id, diameter, placed, self.tarPos, attached)
@@ -223,33 +213,22 @@ class Positioner:
 			ax.rate = rotRate
 
 			# configure motor axis
-			nFailed = 0
-			while True:
-				self.send(f'AX{ax.id}:RATE {ax.rate:.2f}') # set rates
-				time.sleep(0.01)
-				resp = self.send(f'AX{ax.id}:RATE?') # check if really set
-				getRate = float(resp)
-				if abs(getRate-ax.rate) <= 1:
-					break
-				else:
-					log.error(f'Axis {ax.id} actual rate {getRate:.2f} != {ax.rate:.2f} configured')
-					nFailed += 1
-					if nFailed == 3:
-						raise RuntimeError(f'Cannot set rate for axis {id}')
-					time.sleep(0.1)
+			self.send(f'AX{ax.id}:RATE {ax.rate:.2f};*OPC?')
 
 		# estimated time to reach position
 		duration = angleDelta/rotRate
 		log.debug(f'Around {duration:.2f} s to reach position...')
+
+		# configure motor axes positions
+		for ax in self.axes:
+			self.send(f'AX{ax.id}:POS {ax.angle:.2f};*OPC?')
 		
+		# wait until on target position
 		while True:
 			angDiffs = []
 			lenDiffs = []
 			for ax in self.axes:
-				# configure motor axis
-				self.send(f'AX{ax.id}:POS {ax.angle:.2f}')
-				time.sleep(0.05)
-				
+				time.sleep(0.1)
 				# check distance to current angle
 				angDelta = ax.angle-self.getAxisAngle(ax.id)
 				angDiffs.append(angDelta)
